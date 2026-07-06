@@ -31,6 +31,9 @@ class WorkingSet:
     def get(self, item_id: int) -> ContextItem:
         return self._items[item_id]
 
+    def remove(self, item_id: int) -> ContextItem:
+        return self._items.pop(item_id)
+
     def __iter__(self):
         for item_id in sorted(self._items):
             yield self._items[item_id]

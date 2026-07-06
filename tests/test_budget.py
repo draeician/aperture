@@ -1,13 +1,20 @@
 """Budget tests.
 
 Step 4 adds only WorkingSet token-total cases (renderable vs
-restricted, unpinned). The BudgetGovernor (balance/eviction) itself is
-implemented in a later step; this file is additive.
+restricted, unpinned). Step 6 adds BudgetGovernor figure math
+(effective_ceiling/reserved/contested_pool, restricted exclusion,
+balance idempotence). Pass ordering/tie-breaks live in
+tests/test_eviction.py and pin-overflow/eviction-immunity live in
+tests/test_pins.py. This file is additive.
 """
 
 from __future__ import annotations
 
+from aperture.budget import BudgetGovernor
 from aperture.items import ContextItem, ItemState, Provenance, SourceClass
+from aperture.log import MutationLog
+from aperture.page_store import PageStore
+from aperture.policy import Policy
 from aperture.working_set import WorkingSet
 
 
@@ -91,3 +98,84 @@ def test_unpinned_totals_still_exclude_restricted_items():
 
     assert ws.class_totals(unpinned_only=True) == {SourceClass.scratch: 5}
     assert ws.renderable_total(unpinned_only=True) == 5
+
+
+# --- Step 6: BudgetGovernor figures ----------------------------------------
+
+
+def test_effective_ceiling_applies_safety_margin():
+    policy = Policy(budget_total=1000, token_safety_margin=0.1)
+    governor = BudgetGovernor(
+        policy=policy,
+        working_set=WorkingSet(),
+        page_store=PageStore(),
+        log=MutationLog(),
+        page_index_cost=lambda: 0,
+    )
+
+    assert governor.effective_ceiling() == 900  # floor(1000 * 0.9)
+
+
+def test_reserved_and_contested_pool_math():
+    policy = Policy(budget_total=1000, reply_headroom=50, token_safety_margin=0.0)
+    ws = WorkingSet()
+    ws.insert(_make_item(1, token_size=100, pinned=True))
+
+    governor = BudgetGovernor(
+        policy=policy,
+        working_set=ws,
+        page_store=PageStore(),
+        log=MutationLog(),
+        page_index_cost=lambda: 30,
+    )
+
+    assert governor.effective_ceiling() == 1000
+    assert governor.reserved() == 180  # 100 (pinned) + 30 (index) + 50 (headroom)
+    assert governor.contested_pool() == 820
+
+
+def test_restricted_items_excluded_from_reserved_and_contested_pool():
+    policy = Policy(budget_total=1000, reply_headroom=0, token_safety_margin=0.0)
+    ws = WorkingSet()
+    ws.insert(_make_item(1, token_size=100, pinned=True))
+    ws.insert(
+        _make_item(2, token_size=500, pinned=True, mneme_meta={"render_restricted": True})
+    )
+    ws.insert(
+        _make_item(3, token_size=300, pinned=False, mneme_meta={"render_restricted": True})
+    )
+
+    governor = BudgetGovernor(
+        policy=policy,
+        working_set=ws,
+        page_store=PageStore(),
+        log=MutationLog(),
+        page_index_cost=lambda: 0,
+    )
+
+    # Restricted items (pinned or not) contribute nothing to pinned_renderable_total,
+    # reserved, or contested_pool.
+    assert governor.pinned_renderable_total() == 100
+    assert governor.reserved() == 100
+    assert governor.contested_pool() == 900
+
+
+def test_balance_is_idempotent():
+    policy = Policy(budget_total=1000)
+    ws = WorkingSet()
+    ps = PageStore()
+    log = MutationLog()
+    ws.insert(_make_item(1, token_size=10))
+    governor = BudgetGovernor(
+        policy=policy, working_set=ws, page_store=ps, log=log, page_index_cost=lambda: 0
+    )
+
+    report_1 = governor.balance(current_turn=0)
+    assert report_1.changed is False
+    assert report_1.evicted_ids == []
+    events_after_first = log.export()
+
+    report_2 = governor.balance(current_turn=0)
+    assert report_2.changed is False
+    assert report_2.evicted_ids == []
+    assert log.export() == events_after_first

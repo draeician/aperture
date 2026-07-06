@@ -47,7 +47,6 @@ class EventKind(StrEnum):
     expired_flagged = "expired_flagged"
     ttl_extended = "ttl_extended"
     rendered = "rendered"
-    pin_overflow = "pin_overflow"
     session_export = "session_export"
     index_collapsed = "index_collapsed"
 

@@ -66,6 +66,35 @@ def test_working_set_rejects_duplicate_ids():
         ws.insert(_make_item(1))
 
 
+def test_working_set_remove_returns_and_removes_item():
+    ws = WorkingSet()
+    item = _make_item(1)
+    ws.insert(item)
+
+    removed = ws.remove(1)
+
+    assert removed is item
+    assert 1 not in ws
+    assert len(ws) == 0
+
+
+def test_working_set_remove_missing_id_raises_key_error():
+    ws = WorkingSet()
+
+    with pytest.raises(KeyError):
+        ws.remove(1)
+
+
+def test_working_set_iteration_is_ascending_id_after_remove():
+    ws = WorkingSet()
+    for item_id in (3, 1, 2, 4):
+        ws.insert(_make_item(item_id))
+
+    ws.remove(1)
+
+    assert [item.id for item in ws] == [2, 3, 4]
+
+
 def test_working_set_invariant_fails_if_state_not_working():
     ws = WorkingSet()
     ws.insert(_make_item(1, state=ItemState.paged))

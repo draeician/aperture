@@ -82,7 +82,7 @@ Turn counter: owned by the facade; incremented only by next_turn(). All TTL and 
 
 MutationEvent (frozen): seq: int, turn: int, kind: EventKind, item_id: int | None, payload: Mapping[str, object].
 
-EventKind (enum): admitted, rejected, truncated, deduped, redacted, evicted, recalled, expired_flagged, ttl_extended, rendered, pin_overflow, session_export, index_collapsed.
+EventKind (enum): admitted, rejected, truncated, deduped, redacted, evicted, recalled, expired_flagged, ttl_extended, rendered, session_export, index_collapsed.
 
 The rejected event payload must include: source_class, token_size (post-governance), rejection reason, turn — sufficient for explain.absence(item_id) to answer for rejected IDs. Rejected content is not stored anywhere; it is returned to the host in the AdmissionResult only.
 
@@ -144,7 +144,7 @@ Runs inside balance(). Definitions:
 
 Render-budget accounting excludes restricted items entirely (see Render Contract): items with mneme_meta.render_restricted == True do not count toward any render budget, sub-budget, reserved total, or the contested pool, and are never eviction candidates on budget grounds. They remain working-set-visible and are reported separately by explain.budget() as restricted_nonrendered_tokens. TTL still applies to restricted items (Pass A can evict them if expired).
 
-1. If pinned_renderable_total + reply_headroom > effective_ceiling: log pin_overflow, raise PinOverflowError. No eviction occurs.
+1. If pinned_renderable_total + reply_headroom > effective_ceiling: raise PinOverflowError before any eviction, logging nothing. This is a failed operation: it mutates nothing and logs nothing, consistent with the Error Types section and the general atomicity rule (failed operations mutate nothing and log nothing). Pin overflow is reported through the raised error, not MutationLog.
 2. Flag expired items: any working item with TTL where current_turn - admitted_turn >= ttl_turns is flagged (log expired_flagged once per item).
 3. Pass A — TTL: while any invariant is violated and expired unpinned items exist, evict expired items oldest-admitted first, ties by ascending id.
 4. Pass B — sub-budgets: for each class with a sub-budget, in class_eviction_order, while that class's renderable unpinned working tokens exceed floor(fraction * contested_pool): evict within the class by (ascending priority, then descending token_size, then ascending last_rendered_turn with None as -1, then ascending id).
