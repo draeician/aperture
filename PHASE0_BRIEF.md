@@ -118,6 +118,8 @@ Facade Aperture(policy) exposes exactly:
 9. recall_request_schema() / handle_recall_request(payload) — see Recall Rules.
 10. end_session() -> SessionExport — returns working set, page store contents, and full log as plain data structures; then irreversibly clears all state. Any call after end_session raises SessionClosedError.
 
+This list describes the complete, final Phase 0 facade. Per IMPLEMENTATION_ORDER.md, operations 1–7, 9, and 10 are wired into aperture/kernel.py in Step 9; explain.* (operation 8) is implemented separately in aperture/explain.py in Step 10 and is not part of Step 9's facade wiring. This sequencing note does not change the final product's behavior — the facade described above is what Phase 0 delivers once both steps are complete.
+
 There is no delete operation. There is no content-edit operation. Failed operations mutate nothing and log nothing.
 
 ## Admission Pipeline

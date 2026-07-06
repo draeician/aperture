@@ -82,10 +82,11 @@ Write tests: tests/test_render.py in full.
 
 Create: aperture/kernel.py; finalize aperture/__init__.py exports.
 
-Wire exactly the ten facade operations from Core Operations:
+Wire nine of the ten facade operations from Core Operations — all except explain.*, which is deferred to Step 10:
 - submit: full Admission Pipeline order (ID first; rejected consumes ID; rejection metadata logged; content returned not stored).
 - balance, render (purity effects only), recall (atomic with internal balance; ExpiredRecallError precheck; working-id silent no-op), pin, extend_ttl (positive turns; ttl_extended; expired-flag clearing rule), next_turn, recall_request_schema / handle_recall_request, end_session (SessionExport then irreversible clear; SessionClosedError thereafter).
 - Atomicity everywhere: validate first, mutate after; failed operations mutate nothing and log nothing.
+- Do not implement explain.* in this step. The kernel may expose no explain attribute at all, or at most an internal placeholder if strictly necessary for later wiring, but no explain behavior may be implemented here. Step 10 creates aperture/explain.py and implements the Explain API against this kernel.
 
 Write tests: tests/test_recall.py in full, tests/test_ttl.py in full, remaining tests/test_lifecycle.py (state-machine walk, ID gaps from rejections, end_session completeness, post-close raises, instance isolation), tests/test_mneme_opacity.py in full.
 
