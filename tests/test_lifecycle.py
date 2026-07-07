@@ -334,3 +334,28 @@ def test_representative_session_opens_no_sockets_and_writes_no_files(monkeypatch
     kernel.next_turn()
     kernel.balance()
     kernel.end_session()
+
+
+def test_fuzz_session_opens_no_sockets_and_writes_no_files(monkeypatch):
+    # Step 11: same guard as the representative-session check above, but
+    # driving actual generated fuzz sessions (tests/conftest.py), per
+    # PHASE0_BRIEF.md's test_lifecycle.py bullet ("a fuzz session opens no
+    # sockets and writes no files"). Kept small and non-duplicative: the
+    # guard logic itself is identical to the test above.
+    from conftest import run_fuzz_session
+
+    original_open = builtins.open
+
+    def guarded_open(file, mode="r", *args, **kwargs):
+        if any(flag in mode for flag in ("w", "a", "x", "+")):
+            raise AssertionError(f"unexpected file write attempted: {file!r} mode={mode!r}")
+        return original_open(file, mode, *args, **kwargs)
+
+    def guarded_socket(*args, **kwargs):
+        raise AssertionError("unexpected socket creation attempted")
+
+    monkeypatch.setattr(builtins, "open", guarded_open)
+    monkeypatch.setattr(socket, "socket", guarded_socket)
+
+    for seed in range(5):
+        run_fuzz_session(seed)
