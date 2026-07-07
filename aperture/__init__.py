@@ -1,6 +1,6 @@
 """Aperture: a deterministic, in-process context governor for LLM applications.
 
-Public API surface. explain.* is not part of this surface yet (Step 10).
+Public API surface, including explain.* (accessed as Aperture(...).explain).
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from aperture.errors import (
     UnbalancedError,
     UnknownItemError,
 )
+from aperture.explain import Explain
 from aperture.items import (
     ContextItem,
     EventKind,
@@ -46,6 +47,7 @@ __all__ = [
     "BalanceReport",
     "RenderResult",
     "SessionExport",
+    "Explain",
     "ApertureError",
     "PolicyError",
     "InvalidItemError",

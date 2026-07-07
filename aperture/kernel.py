@@ -1,7 +1,5 @@
-"""Aperture: the Phase 0 facade wiring governance, budget, page index, and
-renderer into a single session-scoped object.
-
-explain.* is deliberately not implemented here (Step 10, aperture/explain.py).
+"""Aperture: the Phase 0 facade wiring governance, budget, page index,
+renderer, and explain into a single session-scoped object.
 """
 
 from __future__ import annotations
@@ -16,6 +14,7 @@ from aperture.errors import (
     SessionClosedError,
     UnknownItemError,
 )
+from aperture.explain import Explain
 from aperture.governance import (
     dedup_tool_output,
     redact,
@@ -84,6 +83,7 @@ class Aperture:
             log=self._log,
             is_balanced=self._is_balanced,
         )
+        self.explain = Explain(self)
 
     # --- internal helpers -----------------------------------------------
 

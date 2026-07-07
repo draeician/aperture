@@ -63,6 +63,7 @@ class Renderer:
         manifest: list[int] = []
         rendered_items: list[ContextItem] = []
         total_tokens = 0
+        class_totals: dict[SourceClass, int] = {}
 
         for source_class in self.policy.render_order:
             if source_class == SourceClass.page_index:
@@ -78,6 +79,7 @@ class Renderer:
                 messages.append({"role": role, "content": content})
                 manifest.append(item.id)
                 total_tokens += item.token_size
+                class_totals[source_class] = class_totals.get(source_class, 0) + item.token_size
                 rendered_items.append(item)
 
         for item in rendered_items:
@@ -87,7 +89,11 @@ class Renderer:
             turn=current_turn,
             kind=EventKind.rendered,
             item_id=None,
-            payload={"manifest": list(manifest), "total_tokens": total_tokens},
+            payload={
+                "manifest": list(manifest),
+                "total_tokens": total_tokens,
+                "class_totals": class_totals,
+            },
         )
 
         return RenderResult(messages=messages, manifest=manifest, total_tokens=total_tokens)

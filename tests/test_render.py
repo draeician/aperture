@@ -345,7 +345,11 @@ def test_rendered_log_event_payload_contains_manifest_and_total_tokens():
     assert len(events) == 1
     assert events[0].turn == 3
     assert events[0].item_id is None
-    assert events[0].payload == {"manifest": [1, 2], "total_tokens": 25}
+    assert events[0].payload == {
+        "manifest": [1, 2],
+        "total_tokens": 25,
+        "class_totals": {SourceClass.scratch: 25},
+    }
 
 
 def test_consecutive_renders_are_byte_identical():
