@@ -54,6 +54,8 @@ class BudgetGovernor:
         self._on_evict = on_evict
         self._expired_flagged_ids: set[int] = set()
         self._current_turn = 0
+        self._trigger_override: str | None = None
+        self._displaced_by_override: int | None = None
 
     # --- budget figures ------------------------------------------------
 
@@ -78,14 +80,28 @@ class BudgetGovernor:
 
     # --- balance / eviction ---------------------------------------------
 
-    def balance(self, current_turn: int) -> BalanceReport:
+    def balance(
+        self,
+        current_turn: int,
+        *,
+        trigger_override: str | None = None,
+        displaced_by: int | None = None,
+    ) -> BalanceReport:
         """Run the Eviction Algorithm until budget invariants hold (or no
         more eligible candidates exist). Raises PinOverflowError (logging
         nothing, evicting nothing) if pinned content alone cannot fit.
         Idempotent: with no intervening mutation, a repeat call evicts
         and logs nothing.
+
+        trigger_override/displaced_by let a caller (recall()) tag every
+        eviction this specific call makes as trigger="recall" with
+        displaced_by set to the recalling item's id, instead of the
+        pass-determined "ttl"/"subbudget"/"global". Omitted (the
+        default), behavior is unchanged from a plain balance() call.
         """
         self._current_turn = current_turn
+        self._trigger_override = trigger_override
+        self._displaced_by_override = displaced_by
 
         pinned_total = self.pinned_renderable_total()
         ceiling = self.effective_ceiling()
@@ -217,6 +233,10 @@ class BudgetGovernor:
         triggers: dict[int, str],
         displaced_by: dict[int, int | None],
     ) -> None:
+        if self._trigger_override is not None:
+            trigger = self._trigger_override
+            displaced_by_id = self._displaced_by_override
+
         self.working_set.remove(item.id)
         item.state = ItemState.paged
         self.page_store.insert(item)
