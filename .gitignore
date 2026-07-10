@@ -1,3 +1,4 @@
+tests/
 # Crules specific
 .cursor/rules/*.mdc
 .claude/rules/*.md
