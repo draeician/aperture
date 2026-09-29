@@ -179,13 +179,22 @@ class BudgetGovernor:
             victim = candidates[0]
             self._evict(victim, "ttl", None, evicted_ids, triggers, displaced_by)
 
+    def _effective_eviction_order(self) -> list[SourceClass]:
+        order = list(self.policy.class_eviction_order)
+        if SourceClass.memory not in order:
+            if SourceClass.mneme_import in order:
+                order.insert(order.index(SourceClass.mneme_import), SourceClass.memory)
+            else:
+                order.append(SourceClass.memory)
+        return order
+
     def _pass_b_subbudgets(
         self,
         evicted_ids: list[int],
         triggers: dict[int, str],
         displaced_by: dict[int, int | None],
     ) -> None:
-        for source_class in self.policy.class_eviction_order:
+        for source_class in self._effective_eviction_order():
             fraction = self.policy.class_subbudgets.get(source_class)
             if fraction is None:
                 continue
@@ -208,7 +217,7 @@ class BudgetGovernor:
         triggers: dict[int, str],
         displaced_by: dict[int, int | None],
     ) -> None:
-        class_order = list(self.policy.class_eviction_order)
+        class_order = self._effective_eviction_order()
         idx = 0
         while self._is_over_budget():
             if idx >= len(class_order):
