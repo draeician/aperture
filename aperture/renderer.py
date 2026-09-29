@@ -77,7 +77,15 @@ class Renderer:
         total_tokens = 0
         class_totals: dict[SourceClass, int] = {}
 
-        for source_class in self.policy.render_order:
+        render_order = list(self.policy.render_order)
+        if SourceClass.memory not in render_order:
+            if SourceClass.mneme_import in render_order:
+                insert_at = render_order.index(SourceClass.mneme_import)
+            else:
+                insert_at = render_order.index(SourceClass.page_index)
+            render_order.insert(insert_at, SourceClass.memory)
+
+        for source_class in render_order:
             if source_class == SourceClass.page_index:
                 index_text = self.page_index.render()
                 if index_text:
