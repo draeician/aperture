@@ -42,6 +42,20 @@ Admission pipeline (ID → redaction → tool-output governance → measurement 
 
 A host submits a system prompt (pinned), user facts, conversation turns, and a 40,000-token tool output. Aperture redacts credentials by pattern, truncates the tool output at line boundaries to the policy cap, measures tokens, and admits everything. Before the model call, the host balances: two old scratch items and the eldest conversation turns are paged out, each leaving a one-line entry in the page index. Render produces the message array — system prompt, page index block, then remaining items in fixed order — guaranteed under budget. The model notices item #14 in the page index and issues a recall request; the host wires it through, #14 returns byte-identical, and the item it displaced is logged with the causal chain. Later, the host asks `explain.absence(9)` and gets: paged at turn 6, global pass, displaced by the recall of #14. No mystery, no magic.
 
+## Generic Integration API
+
+Aperture 0.2 adds an additive, product-neutral integration surface without changing the accepted Phase 0 defaults:
+
+- `SourceClass.memory` is the generic durable/retrieved-context class; `mneme_import` remains for compatibility.
+- `SourceRef(source_system, source_id)` carries opaque external references through governance into the structured render manifest.
+- `Submission.render_restricted` is first-class. Legacy `mneme_meta.render_restricted` remains honored, but new integrations do not need MNEME-named fields.
+- `source_metadata`, `application_key`, and `role` are generic application seams.
+- `RenderResult.manifest` remains the legacy ordered item-id list. `RenderResult.manifest_entries` is the structured message-order manifest and includes generated page-index provenance so its token counts reconcile with `total_tokens`.
+- `Policy(render_item_labels=False)` preserves submitted message content byte-for-byte in rendered messages; the Phase 0 label-prefixed format remains the default.
+- `describe_component()`, `Aperture.describe()`, and `Aperture.session_descriptor()` expose implementation, protocol, tokenizer, capability, and policy identity without internal-module inspection.
+
+The generic path has no Host or MNEME dependency. Artificial Person Host remains responsible for its adapter and for reporting actual rendered memory source references back to its memory component.
+
 ## Status
 
-Phase 0. Read PHASE0_BRIEF.md before touching anything. Tests define correctness.
+Phase 0 behavior is preserved. The generic integration API is version 1.0 in Aperture 0.2.0. PHASE0_BRIEF.md remains authoritative for Phase 0 invariants; tests define correctness.

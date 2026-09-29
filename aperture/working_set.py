@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-from aperture.items import ContextItem, ItemState, SourceClass
-
-
-def _is_restricted(item: ContextItem) -> bool:
-    return bool(item.mneme_meta is not None and item.mneme_meta.get("render_restricted") is True)
+from aperture.items import ContextItem, ItemState, SourceClass, is_render_restricted
 
 
 class WorkingSet:
     """Holds all items in ItemState.working, keyed by id.
 
-    Iteration order is always ascending id. Restricted items
-    (mneme_meta.render_restricted is True) are excluded from every
+    Iteration order is always ascending id. Render-restricted items are excluded from every
     token-total query; they remain iterable/membership-visible.
     """
 
@@ -48,7 +43,7 @@ class WorkingSet:
         """
         totals: dict[SourceClass, int] = {}
         for item in self:
-            if _is_restricted(item):
+            if is_render_restricted(item):
                 continue
             if unpinned_only and item.pinned:
                 continue
@@ -61,7 +56,7 @@ class WorkingSet:
 
     def restricted_total(self) -> int:
         """Total token_size across classes for restricted items."""
-        return sum(item.token_size for item in self if _is_restricted(item))
+        return sum(item.token_size for item in self if is_render_restricted(item))
 
     def check_invariants(self) -> None:
         ids = [item.id for item in self]

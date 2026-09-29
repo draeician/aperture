@@ -14,15 +14,11 @@ from dataclasses import dataclass
 from typing import Callable
 
 from aperture.errors import PinOverflowError
-from aperture.items import ContextItem, EventKind, ItemState, SourceClass
+from aperture.items import ContextItem, EventKind, ItemState, SourceClass, is_render_restricted
 from aperture.log import MutationLog
 from aperture.page_store import PageStore
 from aperture.policy import Policy
 from aperture.working_set import WorkingSet
-
-
-def _is_restricted(item: ContextItem) -> bool:
-    return bool(item.mneme_meta is not None and item.mneme_meta.get("render_restricted") is True)
 
 
 @dataclass(frozen=True)
@@ -156,7 +152,7 @@ class BudgetGovernor:
         for item in self.working_set:
             if item.pinned or item.source_class == SourceClass.system:
                 continue
-            if _is_restricted(item):
+            if is_render_restricted(item):
                 continue
             if source_class is not None and item.source_class != source_class:
                 continue

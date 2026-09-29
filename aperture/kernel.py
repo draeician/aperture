@@ -8,6 +8,13 @@ import math
 from dataclasses import dataclass
 
 from aperture.budget import BalanceReport, BudgetGovernor
+from aperture.component import (
+    ComponentDescription,
+    IMPLEMENTATION_VERSION,
+    INTEGRATION_API_VERSION,
+    SessionDescriptor,
+    describe_component,
+)
 from aperture.errors import (
     ExpiredRecallError,
     InvalidItemError,
@@ -21,7 +28,7 @@ from aperture.governance import (
     register_tool_output_hash,
     truncate_tool_output,
 )
-from aperture.items import ContextItem, EventKind, ItemState, SourceClass, Submission
+from aperture.items import ContextItem, EventKind, ItemState, SourceClass, Submission, is_render_restricted
 from aperture.log import MutationLog
 from aperture.page_index import PageIndex, mechanical_index_line
 from aperture.page_store import PageStore
@@ -85,6 +92,20 @@ class Aperture:
         )
         self.explain = Explain(self)
 
+    def describe(self) -> ComponentDescription:
+        """Return public implementation/protocol/tokenizer identity."""
+        return describe_component(self._policy.tokenizer_id)
+
+    def session_descriptor(self) -> SessionDescriptor:
+        """Return the session's public compatibility/audit descriptor."""
+        return SessionDescriptor(
+            implementation_version=IMPLEMENTATION_VERSION,
+            protocol_version=INTEGRATION_API_VERSION,
+            tokenizer_id=self._policy.tokenizer_id,
+            policy_id=self._policy.policy_id,
+            policy_version=self._policy.policy_version,
+        )
+
     # --- internal helpers -----------------------------------------------
 
     def _check_open(self) -> None:
@@ -139,6 +160,16 @@ class Aperture:
             "state": item.state,
             "admitted_turn": item.admitted_turn,
             "last_rendered_turn": item.last_rendered_turn,
+            "source_ref": (
+                {"source_system": item.source_ref.source_system, "source_id": item.source_ref.source_id}
+                if item.source_ref is not None
+                else None
+            ),
+            "source_metadata": dict(item.source_metadata) if item.source_metadata is not None else None,
+            "render_restricted": item.render_restricted,
+            "effective_render_restricted": is_render_restricted(item),
+            "application_key": item.application_key,
+            "role": item.role,
             "mneme_meta": dict(item.mneme_meta) if item.mneme_meta is not None else None,
         }
 
@@ -223,6 +254,11 @@ class Aperture:
             admitted_turn=self._current_turn,
             last_rendered_turn=None,
             mneme_meta=submission.mneme_meta,
+            source_ref=submission.source_ref,
+            source_metadata=submission.source_metadata,
+            render_restricted=submission.render_restricted,
+            application_key=submission.application_key,
+            role=submission.role,
         )
         self._working_set.insert(item)
 

@@ -1,5 +1,4 @@
-"""Enums and data types: SourceClass, ItemState, Structure, TruncationMode,
-EventKind, Provenance, Submission, ContextItem."""
+"""Enums and public item/submission data types."""
 
 from __future__ import annotations
 
@@ -14,6 +13,7 @@ class SourceClass(StrEnum):
     conversation = "conversation"
     tool_output = "tool_output"
     scratch = "scratch"
+    memory = "memory"
     mneme_import = "mneme_import"
     page_index = "page_index"
 
@@ -52,6 +52,14 @@ class EventKind(StrEnum):
 
 
 @dataclass(frozen=True)
+class SourceRef:
+    """Opaque application-owned reference to an external source record."""
+
+    source_system: str
+    source_id: str
+
+
+@dataclass(frozen=True)
 class Provenance:
     submitted_by: str
     origin: str | None = None
@@ -60,7 +68,12 @@ class Provenance:
 
 @dataclass(frozen=True)
 class Submission:
-    """Host-facing submission handed to Aperture.submit()."""
+    """Host-facing submission handed to Aperture.submit().
+
+    Generic integration fields are appended after the Phase 0 fields so
+    existing positional construction remains compatible. mneme_meta is
+    retained only as a legacy compatibility seam.
+    """
 
     source_class: SourceClass
     content: str
@@ -71,6 +84,11 @@ class Submission:
     index_line: str | None = None
     mneme_meta: Mapping[str, object] | None = None
     structure: Structure = Structure.plain
+    source_ref: SourceRef | None = None
+    source_metadata: Mapping[str, object] | None = None
+    render_restricted: bool = False
+    application_key: str | None = None
+    role: str | None = None
 
 
 @dataclass
@@ -89,4 +107,26 @@ class ContextItem:
     state: ItemState
     admitted_turn: int
     last_rendered_turn: int | None
-    mneme_meta: Mapping[str, object] | None
+    mneme_meta: Mapping[str, object] | None = None
+    source_ref: SourceRef | None = None
+    source_metadata: Mapping[str, object] | None = None
+    render_restricted: bool = False
+    application_key: str | None = None
+    role: str | None = None
+
+
+def is_legacy_mneme_restricted(item: ContextItem) -> bool:
+    """Return the historical mneme_meta restriction signal, if present."""
+
+    return bool(item.mneme_meta is not None and item.mneme_meta.get("render_restricted") is True)
+
+
+def is_render_restricted(item: ContextItem) -> bool:
+    """Return the effective render restriction.
+
+    New integrations use the first-class item flag. The legacy metadata
+    signal remains supported so existing Phase 0 callers keep identical
+    behavior.
+    """
+
+    return bool(item.render_restricted or is_legacy_mneme_restricted(item))

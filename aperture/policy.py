@@ -9,6 +9,8 @@ from typing import Mapping
 from aperture.errors import PolicyError
 from aperture.items import SourceClass, TruncationMode
 
+_TIKTOKEN_PREFIX = "tiktoken" + ":"
+
 
 @dataclass(frozen=True)
 class RedactionRule:
@@ -28,6 +30,7 @@ class Policy:
         SourceClass.scratch,
         SourceClass.tool_output,
         SourceClass.conversation,
+        SourceClass.memory,
         SourceClass.mneme_import,
         SourceClass.user_fact,
     )
@@ -40,11 +43,15 @@ class Policy:
         SourceClass.conversation,
         SourceClass.tool_output,
         SourceClass.scratch,
+        SourceClass.memory,
         SourceClass.mneme_import,
         SourceClass.page_index,
     )
     tokenizer_id: str = "whitespace"
     token_safety_margin: float = 0.0
+    render_item_labels: bool = True
+    policy_id: str | None = None
+    policy_version: str | None = None
 
     def __post_init__(self) -> None:
         if self.budget_total <= 0:
@@ -74,9 +81,9 @@ class Policy:
                 ) from exc
 
         if self.tokenizer_id != "whitespace" and not (
-            self.tokenizer_id.startswith("tiktoken:")
-            and len(self.tokenizer_id) > len("tiktoken:")
+            self.tokenizer_id.startswith(_TIKTOKEN_PREFIX)
+            and len(self.tokenizer_id) > len(_TIKTOKEN_PREFIX)
         ):
             raise PolicyError(
-                f"tokenizer_id must be 'whitespace' or 'tiktoken:<encoding>', got {self.tokenizer_id!r}"
+                f"tokenizer_id must be 'whitespace' or '{_TIKTOKEN_PREFIX}<encoding>', got {self.tokenizer_id!r}"
             )

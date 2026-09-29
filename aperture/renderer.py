@@ -9,19 +9,29 @@ one rendered MutationLog event per call.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 
 from aperture.errors import UnbalancedError
-from aperture.items import ContextItem, EventKind, SourceClass
+from aperture.items import ContextItem, EventKind, SourceClass, SourceRef, is_render_restricted
 from aperture.log import MutationLog
 from aperture.page_index import PageIndex
 from aperture.policy import Policy
 from aperture.working_set import WorkingSet
 
 
-def _is_restricted(item: ContextItem) -> bool:
-    return bool(item.mneme_meta is not None and item.mneme_meta.get("render_restricted") is True)
+@dataclass(frozen=True)
+class RenderManifestEntry:
+    """Structured provenance for one message actually dispatched to inference."""
+
+    item_id: int | None
+    source_ref: SourceRef | None
+    source_class: SourceClass
+    role: str
+    token_count: int
+    render_restricted: bool = False
+    application_key: str | None = None
+    generated: bool = False
 
 
 @dataclass(frozen=True)
@@ -29,6 +39,7 @@ class RenderResult:
     messages: list[dict[str, str]]
     manifest: list[int]
     total_tokens: int
+    manifest_entries: list[RenderManifestEntry] = field(default_factory=list)
 
 
 class Renderer:
@@ -54,13 +65,14 @@ class Renderer:
             raise UnbalancedError("cannot render: budget invariants do not hold")
 
         items_by_class: dict[SourceClass, list[ContextItem]] = {}
-        for item in self.working_set:  # ascending id
-            if _is_restricted(item):
+        for item in self.working_set:
+            if is_render_restricted(item):
                 continue
             items_by_class.setdefault(item.source_class, []).append(item)
 
         messages: list[dict[str, str]] = []
         manifest: list[int] = []
+        manifest_entries: list[RenderManifestEntry] = []
         rendered_items: list[ContextItem] = []
         total_tokens = 0
         class_totals: dict[SourceClass, int] = {}
@@ -69,15 +81,40 @@ class Renderer:
             if source_class == SourceClass.page_index:
                 index_text = self.page_index.render()
                 if index_text:
+                    index_cost = self.page_index.cost()
                     messages.append({"role": "user", "content": index_text})
-                    total_tokens += self.page_index.cost()
+                    total_tokens += index_cost
+                    manifest_entries.append(
+                        RenderManifestEntry(
+                            item_id=None,
+                            source_ref=SourceRef(source_system="aperture", source_id="page_index"),
+                            source_class=SourceClass.page_index,
+                            role="user",
+                            token_count=index_cost,
+                            generated=True,
+                        )
+                    )
                 continue
 
-            role = "system" if source_class == SourceClass.system else "user"
             for item in items_by_class.get(source_class, []):
-                content = f"[{item.source_class} #{item.id}]\n{item.content}"
+                role = item.role or ("system" if source_class == SourceClass.system else "user")
+                content = (
+                    f"[{item.source_class} #{item.id}]\n{item.content}"
+                    if self.policy.render_item_labels
+                    else item.content
+                )
                 messages.append({"role": role, "content": content})
                 manifest.append(item.id)
+                manifest_entries.append(
+                    RenderManifestEntry(
+                        item_id=item.id,
+                        source_ref=item.source_ref,
+                        source_class=item.source_class,
+                        role=role,
+                        token_count=item.token_size,
+                        application_key=item.application_key,
+                    )
+                )
                 total_tokens += item.token_size
                 class_totals[source_class] = class_totals.get(source_class, 0) + item.token_size
                 rendered_items.append(item)
@@ -96,4 +133,9 @@ class Renderer:
             },
         )
 
-        return RenderResult(messages=messages, manifest=manifest, total_tokens=total_tokens)
+        return RenderResult(
+            messages=messages,
+            manifest=manifest,
+            total_tokens=total_tokens,
+            manifest_entries=manifest_entries,
+        )
