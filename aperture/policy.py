@@ -30,7 +30,6 @@ class Policy:
         SourceClass.scratch,
         SourceClass.tool_output,
         SourceClass.conversation,
-        SourceClass.memory,
         SourceClass.mneme_import,
         SourceClass.user_fact,
     )
@@ -43,7 +42,6 @@ class Policy:
         SourceClass.conversation,
         SourceClass.tool_output,
         SourceClass.scratch,
-        SourceClass.memory,
         SourceClass.mneme_import,
         SourceClass.page_index,
     )
