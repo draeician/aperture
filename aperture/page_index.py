@@ -13,17 +13,13 @@ duplicate log entries.
 
 from __future__ import annotations
 
-from aperture.items import ContextItem, EventKind
+from aperture.items import ContextItem, EventKind, is_legacy_mneme_restricted
 from aperture.log import MutationLog
 from aperture.page_store import PageStore
 from aperture.policy import Policy
 from aperture.tokenizer import Tokenizer
 
 HEADER = "--- PAGED CONTEXT (recall by id) ---"
-
-
-def _is_restricted(item: ContextItem) -> bool:
-    return bool(item.mneme_meta is not None and item.mneme_meta.get("render_restricted") is True)
 
 
 def mechanical_index_line(content: str) -> str:
@@ -117,6 +113,8 @@ class PageIndex:
 
     @staticmethod
     def _entry_line(item: ContextItem) -> str:
-        if _is_restricted(item):
+        if item.render_restricted:
+            return f"#{item.id} [{item.source_class}] (restricted) ({item.token_size} tok)"
+        if is_legacy_mneme_restricted(item):
             return f"#{item.id} [mneme_import] (restricted) ({item.token_size} tok)"
         return f"#{item.id} [{item.source_class}] {item.index_line} ({item.token_size} tok)"

@@ -14,15 +14,11 @@ from dataclasses import dataclass
 from typing import Callable
 
 from aperture.errors import PinOverflowError
-from aperture.items import ContextItem, EventKind, ItemState, SourceClass
+from aperture.items import ContextItem, EventKind, ItemState, SourceClass, is_render_restricted
 from aperture.log import MutationLog
 from aperture.page_store import PageStore
 from aperture.policy import Policy
 from aperture.working_set import WorkingSet
-
-
-def _is_restricted(item: ContextItem) -> bool:
-    return bool(item.mneme_meta is not None and item.mneme_meta.get("render_restricted") is True)
 
 
 @dataclass(frozen=True)
@@ -156,7 +152,7 @@ class BudgetGovernor:
         for item in self.working_set:
             if item.pinned or item.source_class == SourceClass.system:
                 continue
-            if _is_restricted(item):
+            if is_render_restricted(item):
                 continue
             if source_class is not None and item.source_class != source_class:
                 continue
@@ -183,13 +179,22 @@ class BudgetGovernor:
             victim = candidates[0]
             self._evict(victim, "ttl", None, evicted_ids, triggers, displaced_by)
 
+    def _effective_eviction_order(self) -> list[SourceClass]:
+        order = list(self.policy.class_eviction_order)
+        if SourceClass.memory not in order:
+            if SourceClass.mneme_import in order:
+                order.insert(order.index(SourceClass.mneme_import), SourceClass.memory)
+            else:
+                order.append(SourceClass.memory)
+        return order
+
     def _pass_b_subbudgets(
         self,
         evicted_ids: list[int],
         triggers: dict[int, str],
         displaced_by: dict[int, int | None],
     ) -> None:
-        for source_class in self.policy.class_eviction_order:
+        for source_class in self._effective_eviction_order():
             fraction = self.policy.class_subbudgets.get(source_class)
             if fraction is None:
                 continue
@@ -212,7 +217,7 @@ class BudgetGovernor:
         triggers: dict[int, str],
         displaced_by: dict[int, int | None],
     ) -> None:
-        class_order = list(self.policy.class_eviction_order)
+        class_order = self._effective_eviction_order()
         idx = 0
         while self._is_over_budget():
             if idx >= len(class_order):

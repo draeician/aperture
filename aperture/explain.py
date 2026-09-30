@@ -8,11 +8,7 @@ fresh, on demand, from the kernel's log and current containers.
 from __future__ import annotations
 
 from aperture.errors import UnknownItemError
-from aperture.items import ContextItem, EventKind, ItemState
-
-
-def _is_restricted(item: ContextItem) -> bool:
-    return bool(item.mneme_meta is not None and item.mneme_meta.get("render_restricted") is True)
+from aperture.items import EventKind, ItemState, is_render_restricted
 
 
 def _event_dict(event) -> dict:
@@ -113,7 +109,7 @@ class Explain:
 
         if item_id in self._kernel._working_set:
             item = self._kernel._working_set.get(item_id)
-            if _is_restricted(item):
+            if is_render_restricted(item):
                 return {"reason": "render_restricted"}
             return {"reason": "present"}
 
@@ -198,7 +194,7 @@ class Explain:
 
         result = []
         for item in self._kernel._working_set:
-            if _is_restricted(item):
+            if is_render_restricted(item):
                 continue
             if item.last_rendered_turn is not None:
                 continue
